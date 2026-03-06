@@ -23,6 +23,11 @@ private:
     double renderX;
     double renderY;
     double renderRadius;
+
+    vector<float> trail;
+    VAO trailVAO;
+    VBO* trailVBO;
+    int trailLength = 200;
 public:
     double radius;
     int res = 100;
@@ -56,6 +61,16 @@ public:
         vao.LinkVBO(*vbo, 0);
         vao.Unbind();
         vbo->Unbind();
+
+        trail.push_back(renderX);
+        trail.push_back(renderY);
+
+        trailVBO = new VBO(trail);
+
+        trailVAO.Bind();
+        trailVAO.LinkVBO(*trailVBO, 0);
+        trailVAO.Unbind();
+        trailVBO->Unbind();
     }
 
     void Draw(Shader& shader) {
@@ -92,8 +107,36 @@ public:
         x += vx * dt;
         y += vy * dt;
 
+        double rx = x / WORLD_SCALE;
+        double ry = y / WORLD_SCALE;
+
+        trail.push_back(rx);
+        trail.push_back(ry);
+
+        if (trail.size() > trailLength * 2)
+        {
+            trail.erase(trail.begin(), trail.begin() + 2);
+        }
+
         ax = 0;
         ay = 0;
+    }
+
+    void DrawTrail(Shader& shader)
+    {
+        if (trail.size() < 4) return;
+
+        shader.Activate();
+
+        trailVAO.Bind();
+        trailVBO->Bind();
+
+        glBufferData(GL_ARRAY_BUFFER,
+                     trail.size() * sizeof(float),
+                     trail.data(),
+                     GL_DYNAMIC_DRAW);
+
+        glDrawArrays(GL_LINE_STRIP, 0, trail.size() / 2);
     }
 
 };
@@ -121,7 +164,7 @@ int main()
     int screenWidth = 800;
     int screenHeight = 800;
 
-    GLFWwindow* window = glfwCreateWindow(screenWidth, screenHeight, "Gravity Sim", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(screenWidth, screenHeight, "nBodySimulation", NULL, NULL);
     if (!window)
     {
         cout << "Failed to create window\n";
@@ -150,13 +193,20 @@ int main()
         lastTime = currentTime;
         glClear(GL_COLOR_BUFFER_BIT);
 
-        moon.Draw(shaderProgram);
-        earth.Draw(planetShader);
         ApplyGravity(moon, earth, dt);
         ApplyGravity(earth, moon, dt);
 
+        glLineWidth(2.0f);
+
         moon.Update(dt);
         earth.Update(dt);
+
+        moon.DrawTrail(shaderProgram);
+        earth.DrawTrail(shaderProgram);
+
+        moon.Draw(shaderProgram);
+        earth.Draw(planetShader);
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
