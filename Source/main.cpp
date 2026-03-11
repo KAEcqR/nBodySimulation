@@ -141,17 +141,33 @@ public:
 
 };
 
-void ApplyGravity(Body& a, Body& b, double dt) {
-    double dx = b.x - a.x;
-    double dy = b.y - a.y;
+void ApplyGravity(vector<Body>& bodyList, double dt)
+{
+    for (Body& body : bodyList)
+    {
+        body.ax = 0;
+        body.ay = 0;
+    }
 
-    double r2 = dx*dx + dy*dy;
-    double r = sqrt(r2);
+    for (Body& bodyA : bodyList)
+    {
+        for (Body& bodyB : bodyList)
+        {
+            if (&bodyA == &bodyB)
+                continue;
 
-    double factor = G * b.mass / (r*r*r);
+            double dx = bodyB.x - bodyA.x;
+            double dy = bodyB.y - bodyA.y;
 
-    a.ax += factor * dx;
-    a.ay += factor * dy;
+            double r2 = dx*dx + dy*dy + 1e-6;
+            double r = sqrt(r2);
+
+            double factor = G * bodyB.mass / (r*r*r);
+
+            bodyA.ax += factor * dx;
+            bodyA.ay += factor * dy;
+        }
+    }
 }
 
 int main()
@@ -180,8 +196,10 @@ int main()
     Shader shaderProgram("Shaders/default.vert", "Shaders/default.frag");
     Shader planetShader("Shaders/default.vert", "Shaders/planet.frag");
 
-    Body earth(0, 0, 18'371'000, 0, 0, 5.972e24);
-    Body moon(384400000.0, 0, 6'737'400, 0, 1022, 7.342e22);
+    vector<Body> bodyList;
+
+    bodyList.emplace_back(0, 0, 18'371'000, 0, 0, 5.972e24);
+    bodyList.emplace_back(384400000.0, 0, 6'737'400, 0, 1022, 7.342e22);
 
     double lastTime = glfwGetTime();
 
@@ -193,19 +211,18 @@ int main()
         lastTime = currentTime;
         glClear(GL_COLOR_BUFFER_BIT);
 
-        ApplyGravity(moon, earth, dt);
-        ApplyGravity(earth, moon, dt);
+        ApplyGravity(bodyList, dt);
 
         glLineWidth(2.0f);
 
-        moon.Update(dt);
-        earth.Update(dt);
+        bodyList[0].Update(dt);
+        bodyList[1].Update(dt);
 
-        moon.DrawTrail(shaderProgram);
-        earth.DrawTrail(shaderProgram);
+        bodyList[0].DrawTrail(shaderProgram);
+        bodyList[1].DrawTrail(shaderProgram);
 
-        moon.Draw(shaderProgram);
-        earth.Draw(planetShader);
+        bodyList[0].Draw(shaderProgram);
+        bodyList[1].Draw(planetShader);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
